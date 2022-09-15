@@ -138,4 +138,3 @@ class PostsPagesTests(TestCase):
         self.assertEqual(response.context.get('post').text, self.post.text)
         self.assertEqual(response.context.get('post').author, self.post.author)
         self.assertEqual(response.context.get('post').group, self.post.group)
-        
