@@ -1,9 +1,7 @@
 from django.test import TestCase
 
 from ..models import Group, Post, User
-
-CONST_1 = 15
-
+from ..constants import POSTS_SYMBOLS
 
 class PostModelTest(TestCase):
     @classmethod
@@ -24,7 +22,7 @@ class PostModelTest(TestCase):
     def test_post_str(self):
         """Проверяем, что у модели Post корректно работает __str__."""
         post = PostModelTest.post
-        expected_object_name = post.text[:CONST_1]
+        expected_object_name = post.text[:POSTS_SYMBOLS]
         self.assertEquals(expected_object_name, str(post))
 
     def test_verbose_name(self):

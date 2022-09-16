@@ -1,105 +1,83 @@
-import tempfile
-import shutil
-
 from http import HTTPStatus
 
-from django.conf import settings
-from django.contrib.auth import get_user_model
-from django.test import Client, TestCase, override_settings
+from django.test import Client, TestCase
 from django.urls import reverse
 
-from posts.models import Group, Post
-
-User = get_user_model()
-TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
+from ..forms import PostForm
+from ..models import Group, Post, User
 
 
-@override_settings(MEDIA_ROOT=TEMP_MEDIA_ROOT)
-class PostFormTests(TestCase):
-
+class PostCreateFormTests(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        cls.author = User.objects.create_user(username='TestAuthor')
+        cls.auth_user = User.objects.create_user(username='TestAuthUser')
         cls.group = Group.objects.create(
-            title='Test_title',
+            title='Тестовая группа',
             slug='test-slug',
-            description='Test_description'
+            description='Тестовое описание',
         )
+        cls.post = Post.objects.create(
+            author=cls.author,
+            text='Тестовый текст поста',
+            group=cls.group,
+        )
+        cls.form = PostForm()
 
     def setUp(self):
-        self.guest_client = Client()
-        # Создаём авторизованный клиент
-        self.user = User.objects.create_user(username='auth')
         self.authorized_client = Client()
-        self.authorized_client.force_login(self.user)
-
-    @classmethod
-    def tearDownClass(cls):
-        super().tearDownClass()
-        shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
+        self.authorized_client.force_login(PostCreateFormTests.auth_user)
+        self.authorized_client_author = Client()
+        self.authorized_client_author.force_login(PostCreateFormTests.author)
 
     def test_create_post(self):
-        count_posts = Post.objects.count()
+        """Валидная форма создает запись в Posts."""
+        post_count = Post.objects.all()
+        post_count_set = set(post_count)
         form_data = {
-            'text': 'form_text',
-            'group': self.group.id
+            'text': 'Введенный в форму текст',
+            'group': self.group.pk,
         }
         response = self.authorized_client.post(
             reverse('posts:post_create'),
             data=form_data,
-            follow=True,
+            follow=True
         )
-        self.assertTrue(Post.objects.filter(
-            text='form_text',
-            group=self.group.id,
-            author=self.user
-        ).exists())
-        self.assertEqual(Post.objects.count(), count_posts + 1)
-        self.assertRedirects(response, reverse('posts:profile',
-                                               kwargs={'username': self.user}))
-        self.assertEqual(response.status_code, HTTPStatus.OK)
+        self.assertRedirects(
+            response,
+            reverse(
+                'posts:profile', kwargs={'username': self.auth_user.username}
+            )
+        )
+        post_new = Post.objects.all()
+        post_new_set = set(post_new)
+        difference_sets_of_posts = post_new_set.difference(post_count_set)
+        self.assertEqual(len(difference_sets_of_posts), 1)
+        last_post = difference_sets_of_posts.pop()
+        self.assertEqual(last_post.text, form_data['text'])
+        self.assertEqual(last_post.group.pk, form_data['group'])
+        self.assertEqual(post_new.author, self.post.author, 'Ошибка с автором поста')
 
-    def test_edit_post(self):
-        self.post = Post.objects.create(
-            text='test_text',
-            author=self.user,
-            group=self.group
+    def test_author_edit_post(self):
+        """Валидная форма изменяет запись в Posts."""
+        new_group = Group.objects.create(
+            title='Тестовая группа 2',
+            slug='test-slug2',
+            description='Тестовое описание 2',
         )
-        old_text = self.post
-        self.group2 = Group.objects.create(
-            title='Test_title_2',
-            slug='test-slug_2',
-            description='Test_description_2'
-        )
+
         form_data = {
-            'text': 'form_text_2',
-            'group': self.group2.id
+            'text': 'Отредактированный в форме текст',
+            'group': new_group.pk,
         }
-        response = self.authorized_client.post(
-            reverse('posts:post_edit', kwargs={'post_id': old_text.id}),
+        response = self.authorized_client_author.post(
+            reverse('posts:post_edit', kwargs={'post_id': self.post.pk}),
             data=form_data,
             follow=True
         )
+        post_edit = Post.objects.get(id=self.post.pk)
         self.assertEqual(response.status_code, HTTPStatus.OK)
-        self.assertTrue(Post.objects.filter(
-            group=self.group2.id,
-            author=self.user,
-            pub_date=self.post.pub_date
-        ).exists())
-
-    def test_group(self):
-        self.post = Post.objects.create(
-            text='form_text',
-            author=self.user,
-            group=self.group
-        )
-        old_text = self.post
-        form_data = {'text': 'form_text',
-                     'group': ''}
-        response = self.authorized_client.post(
-            reverse('posts:post_edit', kwargs={'post_id': old_text.id}),
-            data=form_data,
-            follow=True
-        )
-        self.assertEqual(response.status_code, HTTPStatus.OK)
-        self.assertNotEqual(old_text.group, form_data['group'])
+        self.assertEqual(post_edit.text, form_data['text'])
+        self.assertEqual(post_edit.group.pk, form_data['group'])
+        self.assertEqual(post_edit.author, self.post.author, 'Ошибка с автором поста при редактировании')
