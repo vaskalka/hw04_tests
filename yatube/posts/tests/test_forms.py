@@ -52,13 +52,17 @@ class PostCreateFormTests(TestCase):
         )
         post_new = Post.objects.all()
         post_new_set = set(post_new)
+        post_created = Post.objects.get(id=self.post.pk)
         difference_sets_of_posts = post_new_set.difference(post_count_set)
         self.assertEqual(len(difference_sets_of_posts), 1)
         last_post = difference_sets_of_posts.pop()
         self.assertEqual(last_post.text, form_data['text'])
         self.assertEqual(last_post.group.pk, form_data['group'])
-        self.assertEqual(post_new.author,
-                         self.post.author, 'Ошибка с автором поста')
+        self.assertEqual(
+            post_created.author,
+            self.post.author,
+            'ошибка с автором поста'
+        )
 
     def test_author_edit_post(self):
         """Валидная форма изменяет запись в Posts."""
@@ -81,6 +85,8 @@ class PostCreateFormTests(TestCase):
         self.assertEqual(response.status_code, HTTPStatus.OK)
         self.assertEqual(post_edit.text, form_data['text'])
         self.assertEqual(post_edit.group.pk, form_data['group'])
-        self.assertEqual(post_edit.author,
-                         self.post.author,
-                         'Ошибка с автором поста при редактировании')
+        self.assertEqual(
+            post_edit.author,
+            self.post.author,
+            'ошибка с автором поста при редактировании'
+        )
