@@ -82,4 +82,5 @@ class PostCreateFormTests(TestCase):
         self.assertEqual(post_edit.text, form_data['text'])
         self.assertEqual(post_edit.group.pk, form_data['group'])
         self.assertEqual(post_edit.author,
-                         self.post.author, 'Ошибка с автором поста при редактировании')
+                         self.post.author,
+                         'Ошибка с автором поста при редактировании')
