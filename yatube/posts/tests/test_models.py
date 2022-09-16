@@ -3,6 +3,7 @@ from django.test import TestCase
 from ..models import Group, Post, User
 from ..constants import POSTS_SYMBOLS
 
+
 class PostModelTest(TestCase):
     @classmethod
     def setUpClass(cls):
