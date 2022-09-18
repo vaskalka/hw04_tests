@@ -77,7 +77,7 @@ class PostTests(TestCase):
         post = response.context['page_obj'][0]
         self.assertEqual(post, self.post)
         self.assertEqual(response.context['author'], self.post.author)
-        
+
     def test_post_detail_pages_show_correct_context(self):
         """Шаблон post_detail сформирован с правильным контекстом."""
         response = self.authorized_client.get(
