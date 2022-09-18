@@ -50,16 +50,15 @@ class PostCreateFormTests(TestCase):
                 'posts:profile', kwargs={'username': self.auth_user.username}
             )
         )
-        post_new = Post.objects.all()
-        post_new_set = set(post_new)
+        new_post = Post.objects.all()
+        new_post_set = set(new_post)
 
-        difference_sets_of_posts = post_new_set.difference(post_count_set)
+        difference_sets_of_posts = new_post_set.difference(post_count_set)
         self.assertEqual(len(difference_sets_of_posts), 1)
         last_post = difference_sets_of_posts.pop()
         self.assertEqual(last_post.text, form_data['text'])
         self.assertEqual(last_post.group.pk, form_data['group'])
-        post = Post.objects.all().first()
-        self.assertEqual(post.author, self.post.author)
+        self.assertEqual(new_post.first().author, self.post.author)
 
     def test_author_edit_post(self):
         """Валидная форма изменяет запись в Posts."""
