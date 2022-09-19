@@ -58,7 +58,7 @@ class PostCreateFormTests(TestCase):
         last_post = difference_sets_of_posts.pop()
         self.assertEqual(last_post.text, form_data['text'])
         self.assertEqual(last_post.group.pk, form_data['group'])
-        self.assertEqual(new_post.first().author, self.post.author)
+        self.assertEqual(last_post.author, self.auth_user)
 
     def test_author_edit_post(self):
         """Валидная форма изменяет запись в Posts."""

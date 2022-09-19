@@ -12,6 +12,7 @@ class PostTests(TestCase):
         super().setUpClass()
         cls.author = User.objects.create_user(username='TestAuthor')
         cls.auth_user = User.objects.create_user(username='TestAuthUser')
+        cls.user = User.objects.create_user(username='test_user')
         cls.group = Group.objects.create(
             title='Тестовая группа',
             slug='test-slug',
@@ -28,6 +29,16 @@ class PostTests(TestCase):
         self.authorized_client_author = Client()
         self.authorized_client.force_login(PostTests.auth_user)
         self.authorized_client_author.force_login(PostTests.author)
+
+    def compare_posts(self, arg_1, arg_2):
+        """Функция для сверки двух постов (text, id, author_id)"""
+        return (self.assertEqual(arg_1.text, arg_2.text),
+                self.assertEqual(arg_1.id, arg_2.id),
+                self.assertEqual(arg_1.author.id, arg_2.author.id))
+
+    def compare_group_posts(self, arg_1, arg_2):
+        """Функция для сверки группы двух постов"""
+        return (self.assertEqual(arg_1.group.id, arg_2.group.id))
 
     def test_pages_uses_correct_template(self):
         """URL-адрес использует соответствующий шаблон."""
@@ -87,6 +98,7 @@ class PostTests(TestCase):
         self.assertEqual(post, self.post)
 
     def test_post_create_page_show_correct_context(self):
+        """Шаблон post_create_page сформирован с правильным контекстом."""
         response = self.authorized_client.get(reverse('posts:post_create'))
         form_fields = {
             'text': forms.fields.CharField,
@@ -110,26 +122,47 @@ class PostTests(TestCase):
             with self.subTest(field=field):
                 form_field = response.context.get('form').fields.get(field)
                 self.assertIsInstance(form_field, expected)
+        is_edit = response.context['is_edit']
+        self.assertTrue('is_edit')
+        self.assertIsInstance(is_edit, bool)
+        post_id = response.context.get('post_id')
+        self.assertEqual(post_id, self.post.pk)
 
-    def test_post_appeared_on_the_main_page(self):
-        response = self.authorized_client.get(
-            reverse('posts:index'))
-        self.assertIn(self.post,
-                      response.context['page_obj'], 'поста нет на главной')
+    def test_post_appear_index_group_profile(self):
+        """Проверка на отображение поста первым
+        элементом на главной странице, на вкладке
+        группы, в профиле пользователя
+        """
+        self.post_last = Post.objects.create(
+            author=self.user,
+            text=f'Тестовая запись #{self.post}',
+            group=PostTests.group,)
 
-    def test_post_appeared_on_the_groups_page(self):
-        response = self.authorized_client.get(
+        url = (
+            reverse('posts:index'),
             reverse('posts:group_list',
-                    kwargs={'slug': f'{self.group.slug}'}))
-        self.assertIn(self.post,
-                      response.context['page_obj'], 'поста нет в группе')
+                    kwargs={'slug': PostTests.group.slug}),
+            reverse('posts:profile',
+                    kwargs={'username': PostTests.user.username}),
+        )
+        for adress in url:
+            with self.subTest(adress=adress):
+                response = self.authorized_client.get(adress)
+                first_object = response.context['page_obj'][0]
+                self.compare_posts(first_object, self.post_last)
+                self.compare_group_posts(first_object, self.post_last)
 
-    def test_post_in_right_group(self):
-        response = self.authorized_client.get(reverse(
-            'posts:group_list',
-            kwargs={'slug': f'{self.group.slug}'}))
-        self.assertTrue(self.post
-                        in response.context['page_obj'])
+    def test_post_not_another_group(self):
+        """Созданный пост не попал в чужую группу"""
+        another_group = Group.objects.create(
+            title='Дополнительная тестовая группа',
+            slug='test-another-slug',
+            description='Тестовое описание дополнительной группы',
+        )
+        response = self.authorized_client.get(
+            reverse('posts:group_list', kwargs={'slug': another_group.slug})
+        )
+        self.assertEqual(len(response.context['page_obj']), 0)
 
 
 class PaginatorViewsTest(TestCase):
